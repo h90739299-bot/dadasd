@@ -79,7 +79,7 @@ GoToPosButton.Text = "Go To Position"
 GoToPosButton.Font = Enum.Font.Gotham
 GoToPosButton.Parent = MainFrame
 
--- Create joystick for flight control
+-- Create a proper joystick
 local JoystickFrame = Instance.new("Frame")
 JoystickFrame.Size = UDim2.new(0, 150, 0, 150)
 JoystickFrame.Position = UDim2.new(0.8, 0, 0.6, 0)
@@ -91,24 +91,32 @@ JoystickFrame.Draggable = true
 JoystickFrame.Visible = false
 JoystickFrame.Parent = ScreenGui
 
-local JoystickBackground = Instance.new("Frame")
+local JoystickBackground = Instance.new("ImageLabel")
 JoystickBackground.Size = UDim2.new(0, 100, 0, 100)
 JoystickBackground.Position = UDim2.new(0.5, -50, 0.5, -50)
 JoystickBackground.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
 JoystickBackground.BackgroundTransparency = 0.7
 JoystickBackground.BorderSizePixel = 0
+JoystickBackground.Image = "rbxassetid://3570695787"
+JoystickBackground.ImageColor3 = Color3.fromRGB(80, 80, 80)
+JoystickBackground.ScaleType = Enum.ScaleType.Slice
+JoystickBackground.SliceCenter = Rect.new(100, 100, 100, 100)
 JoystickBackground.Parent = JoystickFrame
 
 local UICorner = Instance.new("UICorner")
 UICorner.CornerRadius = UDim.new(1, 0)
 UICorner.Parent = JoystickBackground
 
-local JoystickHandle = Instance.new("Frame")
+local JoystickHandle = Instance.new("ImageLabel")
 JoystickHandle.Size = UDim2.new(0, 40, 0, 40)
 JoystickHandle.Position = UDim2.new(0.5, -20, 0.5, -20)
 JoystickHandle.BackgroundColor3 = Color3.fromRGB(120, 120, 120)
 JoystickHandle.BackgroundTransparency = 0.5
 JoystickHandle.BorderSizePixel = 0
+JoystickHandle.Image = "rbxassetid://3570695787"
+JoystickHandle.ImageColor3 = Color3.fromRGB(120, 120, 120)
+JoystickHandle.ScaleType = Enum.ScaleType.Slice
+JoystickHandle.SliceCenter = Rect.new(100, 100, 100, 100)
 JoystickHandle.Parent = JoystickBackground
 
 local UICornerHandle = Instance.new("UICorner")
@@ -234,68 +242,6 @@ local function SavePosition()
         SavePosButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
         print("Position saved: " .. tostring(SavedPosition))
     end
-end
-
--- Fly to saved position
-local function FlyToPosition()
-    if not SavedPosition then
-        print("No position saved!")
-        return
-    end
-    
-    if not Flying then
-        ToggleFly() -- Включаем полет если он выключен
-        wait(0.5) -- Даем время для активации полета
-    end
-    
-    AutoFlyingToPosition = true
-    GoToPosButton.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
-    
-    -- Create a visual marker at the saved position
-    local marker = Instance.new("Part")
-    marker.Size = Vector3.new(2, 2, 2)
-    marker.Position = SavedPosition + Vector3.new(0, 2, 0)
-    marker.Anchored = true
-    marker.CanCollide = false
-    marker.Transparency = 0.5
-    marker.Color = Color3.fromRGB(255, 255, 0)
-    marker.Material = Enum.Material.Neon
-    marker.Name = "PositionMarker"
-    marker.Parent = workspace
-    
-    -- Auto-fly loop
-    local flyToLoop
-    flyToLoop = game:GetService("RunService").Heartbeat:Connect(function()
-        if not Flying or not RootPart or not BV or not BG or not AutoFlyingToPosition then
-            if flyToLoop then flyToLoop:Disconnect() end
-            if marker then marker:Destroy() end
-            GoToPosButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-            return
-        end
-        
-        local Camera = workspace.CurrentCamera
-        BG.CFrame = Camera.CFrame
-        
-        -- Calculate direction to saved position
-        local direction = (SavedPosition - RootPart.Position)
-        local distance = direction.Magnitude
-        
-        -- Stop if we're close enough
-        if distance < 5 then
-            AutoFlyingToPosition = false
-            if flyToLoop then flyToLoop:Disconnect() end
-            if marker then marker:Destroy() end
-            GoToPosButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-            print("Arrived at saved position!")
-            return
-        end
-        
-        -- Normalize direction and apply speed
-        direction = direction.Unit * FlySpeed
-        
-        -- Apply movement
-        BV.Velocity = direction
-    end)
 end
 
 -- Flight control variables
@@ -449,6 +395,68 @@ local function ToggleFly()
     end
 end
 
+-- Fly to saved position
+local function FlyToPosition()
+    if not SavedPosition then
+        print("No position saved!")
+        return
+    end
+    
+    if not Flying then
+        ToggleFly() -- Включаем полет если он выключен
+        wait(0.5) -- Даем время для активации полета
+    end
+    
+    AutoFlyingToPosition = true
+    GoToPosButton.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
+    
+    -- Create a visual marker at the saved position
+    local marker = Instance.new("Part")
+    marker.Size = Vector3.new(2, 2, 2)
+    marker.Position = SavedPosition + Vector3.new(0, 2, 0)
+    marker.Anchored = true
+    marker.CanCollide = false
+    marker.Transparency = 0.5
+    marker.Color = Color3.fromRGB(255, 255, 0)
+    marker.Material = Enum.Material.Neon
+    marker.Name = "PositionMarker"
+    marker.Parent = workspace
+    
+    -- Auto-fly loop
+    local flyToLoop
+    flyToLoop = game:GetService("RunService").Heartbeat:Connect(function()
+        if not Flying or not RootPart or not BV or not BG or not AutoFlyingToPosition then
+            if flyToLoop then flyToLoop:Disconnect() end
+            if marker then marker:Destroy() end
+            GoToPosButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+            return
+        end
+        
+        local Camera = workspace.CurrentCamera
+        BG.CFrame = Camera.CFrame
+        
+        -- Calculate direction to saved position
+        local direction = (SavedPosition - RootPart.Position)
+        local distance = direction.Magnitude
+        
+        -- Stop if we're close enough
+        if distance < 5 then
+            AutoFlyingToPosition = false
+            if flyToLoop then flyToLoop:Disconnect() end
+            if marker then marker:Destroy() end
+            GoToPosButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+            print("Arrived at saved position!")
+            return
+        end
+        
+        -- Normalize direction and apply speed
+        direction = direction.Unit * FlySpeed
+        
+        -- Apply movement
+        BV.Velocity = direction
+    end)
+end
+
 -- Connect button clicks
 FlyButton.MouseButton1Click:Connect(function()
     ToggleFly()
@@ -486,14 +494,14 @@ connectTouchEvents(AirWalkButton, ToggleAirWalk)
 connectTouchEvents(SavePosButton, SavePosition)
 connectTouchEvents(GoToPosButton, FlyToPosition)
 
--- Fixed joystick control
+-- Improved joystick control
 local function updateJoystick(input)
     if not Flying then return end
     
     local backgroundAbsolutePosition = JoystickBackground.AbsolutePosition
     local backgroundSize = JoystickBackground.AbsoluteSize
     local center = backgroundAbsolutePosition + backgroundSize / 2
-    local maxDistance = backgroundSize.X / 2
+    local maxDistance = backgroundSize.X / 2 - 20
     
     local touchPosition = input.Position
     local delta = touchPosition - center
@@ -504,33 +512,40 @@ local function updateJoystick(input)
         joystickDirection = Vector2.new(direction.X, direction.Y)
         
         -- Update joystick handle position (relative to JoystickBackground)
-        local relativePosition = UDim2.new(0.5, direction.X * distance, 0.5, direction.Y * distance)
-        JoystickHandle.Position = relativePosition
+        local relativeX = direction.X * distance
+        local relativeY = direction.Y * distance
+        JoystickHandle.Position = UDim2.new(0.5, relativeX, 0.5, relativeY)
     else
         joystickDirection = Vector2.new(0, 0)
         JoystickHandle.Position = UDim2.new(0.5, -20, 0.5, -20)
     end
 end
 
--- Fixed joystick input handling
+-- Improved joystick input handling
+local touchStartPosition = nil
+local touchId = nil
+
 JoystickBackground.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.Touch then
         joystickActive = true
+        touchStartPosition = input.Position
+        touchId = input
         updateJoystick(input)
     end
 end)
 
 JoystickBackground.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.Touch and joystickActive then
+    if input.UserInputType == Enum.UserInputType.Touch and joystickActive and input == touchId then
         updateJoystick(input)
     end
 end)
 
 JoystickBackground.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.Touch then
+    if input.UserInputType == Enum.UserInputType.Touch and input == touchId then
         joystickActive = false
         joystickDirection = Vector2.new(0, 0)
         JoystickHandle.Position = UDim2.new(0.5, -20, 0.5, -20)
+        touchId = nil
     end
 end)
 
@@ -570,6 +585,6 @@ Player.CharacterAdded:Connect(function(NewCharacter)
     AutoFlyingToPosition = false
 end)
 
-print("Mobile fly system with joystick loaded!")
+print("Mobile fly system with improved joystick loaded!")
 print("Use the joystick to control flight direction!")
 print("Save positions and fly to them automatically!")
