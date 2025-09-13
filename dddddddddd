@@ -245,7 +245,7 @@ local function FlyToPosition()
     
     if not Flying then
         ToggleFly() -- Включаем полет если он выключен
-        wait(0.1)
+        wait(0.5) -- Даем время для активации полета
     end
     
     AutoFlyingToPosition = true
@@ -264,9 +264,10 @@ local function FlyToPosition()
     marker.Parent = workspace
     
     -- Auto-fly loop
-    local flyToLoop = game:GetService("RunService").Heartbeat:Connect(function()
+    local flyToLoop
+    flyToLoop = game:GetService("RunService").Heartbeat:Connect(function()
         if not Flying or not RootPart or not BV or not BG or not AutoFlyingToPosition then
-            flyToLoop:Disconnect()
+            if flyToLoop then flyToLoop:Disconnect() end
             if marker then marker:Destroy() end
             GoToPosButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
             return
@@ -282,7 +283,7 @@ local function FlyToPosition()
         -- Stop if we're close enough
         if distance < 5 then
             AutoFlyingToPosition = false
-            flyToLoop:Disconnect()
+            if flyToLoop then flyToLoop:Disconnect() end
             if marker then marker:Destroy() end
             GoToPosButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
             print("Arrived at saved position!")
@@ -485,7 +486,7 @@ connectTouchEvents(AirWalkButton, ToggleAirWalk)
 connectTouchEvents(SavePosButton, SavePosition)
 connectTouchEvents(GoToPosButton, FlyToPosition)
 
--- Joystick control
+-- Fixed joystick control
 local function updateJoystick(input)
     if not Flying then return end
     
@@ -502,17 +503,16 @@ local function updateJoystick(input)
         local direction = delta.Unit
         joystickDirection = Vector2.new(direction.X, direction.Y)
         
-        -- Update joystick handle position
-        local handlePosition = center + direction * distance
-        local relativePosition = handlePosition - backgroundAbsolutePosition
-        JoystickHandle.Position = UDim2.new(0, relativePosition.X - 20, 0, relativePosition.Y - 20)
+        -- Update joystick handle position (relative to JoystickBackground)
+        local relativePosition = UDim2.new(0.5, direction.X * distance, 0.5, direction.Y * distance)
+        JoystickHandle.Position = relativePosition
     else
         joystickDirection = Vector2.new(0, 0)
         JoystickHandle.Position = UDim2.new(0.5, -20, 0.5, -20)
     end
 end
 
--- Joystick input handling
+-- Fixed joystick input handling
 JoystickBackground.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.Touch then
         joystickActive = true
@@ -533,6 +533,9 @@ JoystickBackground.InputEnded:Connect(function(input)
         JoystickHandle.Position = UDim2.new(0.5, -20, 0.5, -20)
     end
 end)
+
+-- Make joystick background touchable
+JoystickBackground.Active = true
 
 -- Anti-cheat bypass
 game:GetService("RunService").Heartbeat:Connect(function()
