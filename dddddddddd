@@ -1,4 +1,4 @@
--- Script by Colin: Movable Menu with Throw Player Function
+-- Script by Colin: Working Fly and Throw Others Function
 local Player = game:GetService("Players").LocalPlayer
 local Character = Player.Character or Player.CharacterAdded:Wait()
 local Humanoid = Character:WaitForChild("Humanoid")
@@ -12,7 +12,7 @@ ScreenGui.ResetOnSpawn = false
 
 -- Main Frame (This is the movable window)
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0.3, 0, 0.35, 0)
+MainFrame.Size = UDim2.new(0.3, 0, 0.4, 0)
 MainFrame.Position = UDim2.new(0.05, 0, 0.3, 0)
 MainFrame.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
 MainFrame.BorderSizePixel = 2
@@ -23,7 +23,7 @@ MainFrame.Parent = ScreenGui
 
 -- Title Bar
 local TitleBar = Instance.new("Frame")
-TitleBar.Size = UDim2.new(1, 0, 0.12, 0)
+TitleBar.Size = UDim2.new(1, 0, 0.1, 0)
 TitleBar.Position = UDim2.new(0, 0, 0, 0)
 TitleBar.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 TitleBar.BorderSizePixel = 0
@@ -44,63 +44,139 @@ local FlyToggled = false
 local FlySpeed = 50
 local BodyGyro = nil
 local BodyVelocity = nil
+local FlyConnection = nil
 
 -- Speed & Noclip Variables
 local SpeedToggled = false
 local NoclipToggled = false
 local SpeedBoost = 50
 
--- Function to throw player off map
-local function ThrowPlayerOffMap()
-    if RootPart then
-        -- Launch player far away with high velocity
-        local launchForce = Instance.new("BodyVelocity")
-        launchForce.Velocity = Vector3.new(0, 1000, 0) -- Launch straight up super high
-        launchForce.MaxForce = Vector3.new(9e9, 9e9, 9e9)
-        launchForce.P = 10000
-        launchForce.Parent = RootPart
-        
-        -- Remove the force after a short time
-        game:GetService("Debris"):AddItem(launchForce, 0.5)
-        
-        print("Player launched off map!")
+-- Function to throw OTHER players off map
+local function ThrowOtherPlayer()
+    -- Get the closest player
+    local closestPlayer = nil
+    local closestDistance = math.huge
+    
+    for _, otherPlayer in pairs(game:GetService("Players"):GetPlayers()) do
+        if otherPlayer ~= Player and otherPlayer.Character then
+            local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if otherRoot then
+                local distance = (RootPart.Position - otherRoot.Position).Magnitude
+                if distance < closestDistance and distance < 50 then -- Only players within 50 studs
+                    closestDistance = distance
+                    closestPlayer = otherPlayer
+                end
+            end
+        end
+    end
+    
+    if closestPlayer and closestPlayer.Character then
+        local targetRoot = closestPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if targetRoot then
+            -- Launch the other player far away
+            local launchForce = Instance.new("BodyVelocity")
+            launchForce.Velocity = Vector3.new(0, 2000, 0) -- Launch straight up super high
+            launchForce.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+            launchForce.P = 10000
+            launchForce.Parent = targetRoot
+            
+            -- Remove the force after a short time
+            game:GetService("Debris"):AddItem(launchForce, 0.3)
+            
+            print("Threw player " .. closestPlayer.Name .. " off the map!")
+        end
+    else
+        print("No nearby player found to throw!")
     end
 end
 
--- Fly Button
-local FlyButton = Instance.new("TextButton")
-FlyButton.Size = UDim2.new(0.8, 0, 0.15, 0)
-FlyButton.Position = UDim2.new(0.1, 0, 0.15, 0)
-FlyButton.Text = "Fly: OFF"
-FlyButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-FlyButton.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
-FlyButton.Parent = MainFrame
-FlyButton.MouseButton1Click:Connect(function()
+-- Fixed Fly Function
+local function ToggleFly()
     FlyToggled = not FlyToggled
     FlyButton.Text = "Fly: " .. (FlyToggled and "ON" or "OFF")
     FlyButton.BackgroundColor3 = FlyToggled and Color3.fromRGB(60, 200, 60) or Color3.fromRGB(200, 60, 60)
     
     if FlyToggled then
         -- Create flight controls
-        BodyGyro = Instance.new("BodyGyro", RootPart)
+        BodyGyro = Instance.new("BodyGyro")
         BodyGyro.P = 10000
         BodyGyro.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
         BodyGyro.CFrame = RootPart.CFrame
+        BodyGyro.Parent = RootPart
 
-        BodyVelocity = Instance.new("BodyVelocity", RootPart)
+        BodyVelocity = Instance.new("BodyVelocity")
         BodyVelocity.Velocity = Vector3.new(0, 0, 0)
         BodyVelocity.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+        BodyVelocity.Parent = RootPart
+        
+        -- Disable gravity while flying
+        Humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+        Humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
+        
+        -- Flight control loop
+        FlyConnection = game:GetService("RunService").Heartbeat:Connect(function()
+            if not FlyToggled or not BodyVelocity or not BodyGyro or not RootPart then
+                FlyConnection:Disconnect()
+                return
+            end
+            
+            local camera = workspace.CurrentCamera
+            BodyGyro.CFrame = camera.CFrame
+            
+            local moveDirection = Vector3.new(0, 0, 0)
+            
+            -- Movement controls
+            if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.W) then
+                moveDirection = moveDirection + camera.CFrame.LookVector
+            end
+            if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.S) then
+                moveDirection = moveDirection - camera.CFrame.LookVector
+            end
+            if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.D) then
+                moveDirection = moveDirection + camera.CFrame.RightVector
+            end
+            if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.A) then
+                moveDirection = moveDirection - camera.CFrame.RightVector
+            end
+            if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.Space) then
+                moveDirection = moveDirection + Vector3.new(0, 1, 0)
+            end
+            if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.LeftShift) then
+                moveDirection = moveDirection - Vector3.new(0, 1, 0)
+            end
+            
+            BodyVelocity.Velocity = moveDirection * FlySpeed
+        end)
+        
+        print("Fly ON - Use WASD to move, Space/Shift for up/down")
     else
-        -- Remove flight controls
+        -- Clean up flight
+        if FlyConnection then FlyConnection:Disconnect() end
         if BodyGyro then BodyGyro:Destroy() end
         if BodyVelocity then BodyVelocity:Destroy() end
+        
+        -- Re-enable gravity
+        Humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, true)
+        Humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, true)
+        
+        print("Fly OFF")
     end
-end)
+end
+
+-- Fly Button
+local FlyButton = Instance.new("TextButton")
+FlyButton.Size = UDim2.new(0.8, 0, 0.12, 0)
+FlyButton.Position = UDim2.new(0.1, 0, 0.12, 0)
+FlyButton.Text = "Fly: OFF"
+FlyButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+FlyButton.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+FlyButton.Parent = MainFrame
+FlyButton.MouseButton1Click:Connect(ToggleFly)
 
 -- Speed Button
 local SpeedButton = Instance.new("TextButton")
-SpeedButton.Size = UDim2.new(0.8, 0, 0.15, 0)
-SpeedButton.Position = UDim2.new(0.1, 0, 0.32, 0)
+SpeedButton.Size = UDim2.new(0.8, 0, 0.12, 0)
+SpeedButton.Position = UDim2.new(0.1, 0, 0.26, 0)
 SpeedButton.Text = "Speed: OFF"
 SpeedButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 SpeedButton.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
@@ -119,8 +195,8 @@ end)
 
 -- Noclip Button
 local NoclipButton = Instance.new("TextButton")
-NoclipButton.Size = UDim2.new(0.8, 0, 0.15, 0)
-NoclipButton.Position = UDim2.new(0.1, 0, 0.49, 0)
+NoclipButton.Size = UDim2.new(0.8, 0, 0.12, 0)
+NoclipButton.Position = UDim2.new(0.1, 0, 0.4, 0)
 NoclipButton.Text = "Noclip: OFF"
 NoclipButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 NoclipButton.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
@@ -137,15 +213,15 @@ NoclipButton.MouseButton1Click:Connect(function()
     end
 end)
 
--- Throw Player Button
+-- Throw Other Player Button
 local ThrowButton = Instance.new("TextButton")
-ThrowButton.Size = UDim2.new(0.8, 0, 0.15, 0)
-ThrowButton.Position = UDim2.new(0.1, 0, 0.66, 0)
-ThrowButton.Text = "THROW PLAYER"
+ThrowButton.Size = UDim2.new(0.8, 0, 0.12, 0)
+ThrowButton.Position = UDim2.new(0.1, 0, 0.54, 0)
+ThrowButton.Text = "THROW NEARBY PLAYER"
 ThrowButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 ThrowButton.BackgroundColor3 = Color3.fromRGB(180, 60, 180)
 ThrowButton.Parent = MainFrame
-ThrowButton.MouseButton1Click:Connect(ThrowPlayerOffMap)
+ThrowButton.MouseButton1Click:Connect(ThrowOtherPlayer)
 
 -- Close Button (small X in corner)
 local CloseButton = Instance.new("TextButton")
@@ -179,19 +255,10 @@ Player.CharacterAdded:Connect(function()
     end
     
     if FlyToggled then
-        -- Recreate flight controls
-        if BodyGyro then BodyGyro:Destroy() end
-        if BodyVelocity then BodyVelocity:Destroy() end
-        
-        BodyGyro = Instance.new("BodyGyro", RootPart)
-        BodyGyro.P = 10000
-        BodyGyro.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
-        BodyGyro.CFrame = RootPart.CFrame
-
-        BodyVelocity = Instance.new("BodyVelocity", RootPart)
-        BodyVelocity.Velocity = Vector3.new(0, 0, 0)
-        BodyVelocity.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+        ToggleFly() -- Turn off
+        task.wait(0.5)
+        ToggleFly() -- Turn back on
     end
 end)
 
-print("Mobile menu loaded! Drag the title bar to move. THROW PLAYER button added.")
+print("Mobile menu loaded! Fly fixed. THROW NEARBY PLAYER button added - get close to another player and press it.")
